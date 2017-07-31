@@ -338,7 +338,7 @@ int parse_tsip(const uint8_t *buf, size_t len, tsip_packet_t *p)
 		/* Check the length of the packet */
 		if (len != 17 + s->svs_in_fix)
 		{
-		    printf("Packet 0x6c incorrect length: %d, should be %d\n",
+		    printf("Packet 0x6c incorrect length: %ld, should be %d\n",
 		    	len, 17+s->svs_in_fix);
 		    return(-1);
 		}
