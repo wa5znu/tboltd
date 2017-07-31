@@ -237,11 +237,11 @@ int client_queue(void *buf, size_t len, client_t *c)
 	    /* FIXME -- Subtle bug for when head = 0 and buffer is full */
 	    l = CLIENT_BUF_SIZE - c->wtail;
 	    if (!detach && verbose >= 4)
-	        printf("l: %d\n", l);
+	        printf("l: %ld\n", l);
 	    if (len < l)
 	    	l = len;
 	    if (!detach && verbose >= 4)
-	        printf("whead: %d, wtail: %d, l: %d\n", c->whead, c->wtail, l);
+	        printf("whead: %d, wtail: %d, l: %ld\n", c->whead, c->wtail, l);
 	    memcpy(c->wbuf + c->wtail, buf, l);
 	    consumed += l;
 	    len -= l;
@@ -259,11 +259,11 @@ int client_queue(void *buf, size_t len, client_t *c)
 	{
 	    l = c->whead - c->wtail - 1;
 	    if (!detach && verbose >= 4)
-	        printf("B l: %d\n", l);
+	        printf("B l: %ld\n", l);
 	    if (len < l)
 	        l = len;
 	    if (!detach && verbose >= 4)
-	        printf("whead: %d, wtail: %d, l: %d\n", c->whead, c->wtail, l);
+	        printf("whead: %d, wtail: %d, l: %ld\n", c->whead, c->wtail, l);
 	    memcpy(c->wbuf + c->wtail, buf, l);
 	    consumed += l;
 	    c->wtail += l;
@@ -303,7 +303,7 @@ int client_read(client_t *c)
 	default:
 	    // Actually have data to use
 	    if (!detach && verbose >= 1)
-		printf("client (%d) read %d bytes\n", c->fd, ret);
+		printf("client (%d) read %ld bytes\n", c->fd, ret);
 	    /* FIXME -- Do this right */
 	    write(tbolt_fd, buf, ret);
 	}
@@ -327,7 +327,7 @@ int client_write(client_t *c)
 	       at the moment */
 	    l = CLIENT_BUF_SIZE - c->whead;
 	    if (!detach && verbose >= 4)
-	        printf("Wrap: l: %d, head: %d\n", l, c->whead);
+	        printf("Wrap: l: %ld, head: %d\n", l, c->whead);
 	    ret = write(c->fd, c->wbuf + c->whead, l);
 	    if (ret == -1)
 	    {
