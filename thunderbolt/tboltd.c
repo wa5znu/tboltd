@@ -29,10 +29,6 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* Comment out the following to build on OS X */
-#define	HAVE_ENDIAN
-#define	HAVE_LIBUTIL
-
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -55,7 +51,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <termios.h>
 #include <stdlib.h>
 
+#ifdef MACHINE_PARAM
 #include <machine/param.h>
+#endif
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <syslog.h>
@@ -73,6 +71,7 @@ uint16_t be16dec(const void *buf)
 	++buf;
 	ret <<= 8;
 	ret |= *(uint8_t *)buf;
+	return ret;
 }
 
 uint32_t be32dec(const void *buf)
@@ -88,6 +87,7 @@ uint32_t be32dec(const void *buf)
 	++buf;
 	ret <<= 8;
 	ret |= *(uint8_t *)buf;
+	return ret;
 }
 #endif
 
@@ -126,13 +126,13 @@ struct shmTime *getShmTime (int unit) {
 	shmid=shmget (NTP_SHM+unit, sizeof (struct shmTime), 
 		      IPC_CREAT|(unit<2?0700:0777));
 	if (shmid==-1) { /*error */
-		// msyslog(LOG_ERR,"SHM shmget (unit %d): %s",unit,strerror(errno));
+	        printf("SHM shmget (unit %d): %s",unit,strerror(errno));
 		return 0;
 	}
 	else { /* no error  */
 		struct shmTime *p=(struct shmTime *)shmat (shmid, 0, 0);
 		if ((int)(long)p==-1) { /* error */
-			// msyslog(LOG_ERR,"SHM shmat (unit %d): %s",unit,strerror(errno));
+			printf("SHM shmat (unit %d): %s",unit,strerror(errno));
 			return 0;
 		}
 		return p;
@@ -565,7 +565,7 @@ int print_tsip(tsip_packet_t *p)
 		primary_timing_packet_t		*s;
 		s = &p->data.primary_timing_packet;
 		printf("Primary Timing Packet, ");
-		printf("%ld, ", s->gps_seconds_of_week);
+		printf("%d, ", s->gps_seconds_of_week);
 		printf("%hu, ", s->gps_week);
 		printf("%hd, ", s->utc_offset);
 		printf("%hhu, ", s->timing_flag);

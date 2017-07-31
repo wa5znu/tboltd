@@ -1,0 +1,58 @@
+*** gpsdclient.c.orig	2010-05-09 16:12:21.000000000 -0700
+--- gpsdclient.c	2010-05-10 16:58:46.000000000 -0700
+***************
+*** 178,181 ****
+--- 178,182 ----
+  	ret <<= 8;
+  	ret |= *(uint8_t *)buf;
++ 	return ret;
+  }
+  
+***************
+*** 193,196 ****
+--- 194,198 ----
+  	ret <<= 8;
+  	ret |= *(uint8_t *)buf;
++ 	return ret;
+  }
+  #endif
+*** Makefile.orig	2010-05-09 20:27:19.000000000 -0700
+--- Makefile	2010-05-10 17:07:19.000000000 -0700
+***************
+*** 10,14 ****
+  
+  tboltd: tboltd.o
+! 	$(CC) $(LDFLAGS) -o tbolgtd tboltd.o
+  
+  tboltd.o: tboltd.c
+--- 10,14 ----
+  
+  tboltd: tboltd.o
+! 	$(CC) $(LDFLAGS) -o tboltd tboltd.o
+  
+  tboltd.o: tboltd.c
+*** run.txt.orig	2010-05-09 20:13:21.000000000 -0700
+--- run.txt	2010-05-10 16:59:21.000000000 -0700
+***************
+*** 1 ****
+! ./tboldtd -d -t /dev/ttyUSB1 -u 0
+--- 1 ----
+!  ./tboltd -d -t /dev/ttyUSB1 -u 0 
+*** tboltd.c.orig	2010-05-09 20:24:45.000000000 -0700
+--- tboltd.c	2010-05-10 16:59:02.000000000 -0700
+***************
+*** 72,75 ****
+--- 72,76 ----
+  	ret <<= 8;
+  	ret |= *(uint8_t *)buf;
++ 	return ret;
+  }
+  
+***************
+*** 87,90 ****
+--- 88,92 ----
+  	ret <<= 8;
+  	ret |= *(uint8_t *)buf;
++ 	return ret;
+  }
+  #endif

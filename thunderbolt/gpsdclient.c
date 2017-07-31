@@ -41,9 +41,13 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef HAVE_ENDIAN
 #include <sys/endian.h>
+#endif
 
+#ifdef HAVE_MACHINE_PARAM
 #include <machine/param.h>
+#endif
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <syslog.h>
@@ -165,6 +169,35 @@ typedef struct tsip_packet_s
 	} data;
 } tsip_packet_t;
 
+#ifndef HAVE_ENDIAN
+uint16_t be16dec(const void *buf)
+{
+	uint16_t	ret;
+	ret = *(uint8_t *)buf;
+	++buf;
+	ret <<= 8;
+	ret |= *(uint8_t *)buf;
+	return ret;
+}
+
+uint32_t be32dec(const void *buf)
+{
+	uint32_t	ret;
+	ret = *(uint8_t *)buf;
+	++buf;
+	ret <<= 8;
+	ret |= *(uint8_t *)buf;
+	++buf;
+	ret <<= 8;
+	ret |= *(uint8_t *)buf;
+	++buf;
+	ret <<= 8;
+	ret |= *(uint8_t *)buf;
+	return ret;
+}
+#endif
+
+
 int print_tsip(tsip_packet_t *p)
 {
 	switch(p->tsip_type)
@@ -216,7 +249,7 @@ int print_tsip(tsip_packet_t *p)
 		primary_timing_packet_t		*s;
 		s = &p->data.primary_timing_packet;
 		printf("Primary Timing Packet, ");
-		printf("%ld, ", s->gps_seconds_of_week);
+		printf("%d, ", s->gps_seconds_of_week);
 		printf("%hu, ", s->gps_week);
 		printf("%hd, ", s->utc_offset);
 		printf("%hhu, ", s->timing_flag);
