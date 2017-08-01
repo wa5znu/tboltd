@@ -63,6 +63,16 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include <arpa/inet.h>
 
+struct gregorian_date {
+  int year;
+  int month;
+  int day;
+  int hours;
+  int minutes;
+  int seconds;
+  double frac;
+};
+
 #ifndef HAVE_ENDIAN
 uint16_t be16dec(const void *buf)
 {
@@ -721,7 +731,6 @@ int parse_tsip(const uint8_t *buf, size_t len, tsip_packet_t *p)
 		    s->month = *buf;
 		    ++buf;
 		    s->year = be16dec(buf);
-		    buf += 2;
 		}
 		break;
 		
@@ -741,6 +750,132 @@ int parse_tsip(const uint8_t *buf, size_t len, tsip_packet_t *p)
 	}
 
 	return 0;
+}
+
+// adjust_rcvr_time adapted from Lady Heather Version 5.0 Thunderbolt TSIP monitor Copyright (C) 2017 Mark S. Sims
+double jdate(int y, int m, int d)
+{
+long j;
+long j1;
+long j2;
+long j3;
+long c;
+long x;
+
+   // return the julian date of the start of a given day
+
+   if(m < 3) {
+      m = m + 12;
+      j = y - 1;
+   }
+   else j = y;
+
+   c = (j / 100L);
+   x = j - (100L * c);
+   j1 = (146097L * c) / 4L;
+   j2 = (36525L * x) / 100L;
+   j3 = ((153L*(long)m) - 457L) / 5L;
+   return (1721119.5-1.0) + (double) j1 + (double) j2 + (double) j3 + (double) d;
+}
+
+// adjust_rcvr_time adapted from Lady Heather Version 5.0 Thunderbolt TSIP monitor Copyright (C) 2017 Mark S. Sims
+double jtime(int hh, int mm, int ss, double frac)
+{
+  double h;
+
+  // return time in Julian days
+
+  h = ((double) hh) + (((double) mm)/60.0) + ((((double) ss)+frac)/3600.0);
+  return (h / 24.0);
+}
+
+// adjust_rcvr_time adapted from Lady Heather Version 5.0 Thunderbolt TSIP monitor Copyright (C) 2017 Mark S. Sims
+void gregorian(double jd, struct gregorian_date *g)
+{
+  long z;
+  long w;
+  long x;
+  long a,b,c,d,e,f;
+  double t;
+  double tweak;
+  int i;
+
+
+  // convert Julian date to Gregorian
+  // The results are returned in the g_xxxx global variables.
+
+  tweak = 0.0;  // used to compensate for subtle round-off errors;
+  for(i=0; i<2; i++) {
+    if(tweak) jd += jtime(0,0,0, tweak);  // tweak prevent round-down errors
+
+    z = (long) (jd + 0.50);
+    w = (long) (((double) z - 1867216.25) / 36524.25);
+    x = w / 4;
+    a = z + 1 + w - x;
+    b = a + 1524;
+    c = (long) ((((double) b) - 122.1) / 365.25);
+    d = (long) (((double) c) * 365.25);
+    e = (long) (((double) (b-d)) / 30.6001);
+    f = (long) (((double) e) * 30.6001);
+
+    g->day   = (int) (b - d - f);
+    g->month = (int) (e - 1);
+    if(g->month > 12) g->month = (int) (e - 13);
+
+    if(g->month < 3) g->year = (int) (c - 4715);
+    else            g->year = (int) (c - 4716);
+
+    t = jd - jdate(g->year,g->month,g->day);
+    t *= 24.0;
+
+    g->hours = (int) t;         // convert decimal hours to hh:mm:ss
+
+    t = (t - g->hours);
+    g->minutes = (int) (t * 60.0);
+
+    t = (t * 60.0) - g->minutes;
+    g->seconds = (int) (t * 60.0);
+
+    g->frac = (t * 60.0) - g->seconds;
+    if(g->frac >= 0.999) tweak += 0.001;
+    else break;
+  }
+
+  if(g->month < 1) g->month = 0;        // invalid month, protect against possible array indexing errors
+  else if(g->month > 12) g->month = 0;
+  if(g->day < 1) g->day = 0;            // invalid day, protect against possible array indexing errors
+  else if(g->day > 31) g->day = 0;
+}
+
+// adjust_rcvr_time adapted from Lady Heather Version 5.0 Thunderbolt TSIP monitor Copyright (C) 2017 Mark S. Sims
+void adjust_rcvr_time(tsip_packet_t *p, double delta)
+{
+  double jd;
+
+  // adjust the raw receiver clock reading by "delta" seconds
+  //
+  // NOTE! This routine uses the tspi_packet primary_timing_packet time variables.
+  // At the points where it is called, these variables contain the receiver time (UTC or GPS)
+  //       and NOT the local time!
+
+  jd = jdate(p->data.primary_timing_packet.year,
+	     p->data.primary_timing_packet.month,
+	     p->data.primary_timing_packet.day);
+  jd += jtime(p->data.primary_timing_packet.hour,
+	      p->data.primary_timing_packet.minutes,
+	      p->data.primary_timing_packet.seconds,
+	      delta);
+  struct gregorian_date g;
+  gregorian(jd, &g);  // convert julian date to gregorian
+
+  // update date/time variables to the corrected values
+  p->data.primary_timing_packet.year = g.year;  
+  p->data.primary_timing_packet.month = g.month;
+  p->data.primary_timing_packet.day = g.day;
+  p->data.primary_timing_packet.hour = g.hours;
+  p->data.primary_timing_packet.minutes = g.minutes;
+  p->data.primary_timing_packet.seconds = g.seconds;
+  //    pri_frac = g.frac;
 }
 
 #define	DLE	0x10
@@ -778,6 +913,15 @@ int read_tsip(const char *buf, size_t len /* Stick in handler function */)
 		    parse_tsip(tsip_buf, tsip_len, &p);
 		    if (shm && p.tsip_type == TSIP_PRIMARY_TIMING_PACKET)
 		    {
+		        int rolls = 0;
+			// hard-code rollover from July, 2017 event, assuming only 1 rollover.
+			// Edit this code again in 20 years.
+			if (p.data.primary_timing_packet.year < 2016) {
+			  rolls = 1;
+			  double rollover = rolls * (1024.0 * 7.0 * 24.0*60.0*60.0);  // rollover n 1024 week epochs
+			  adjust_rcvr_time(&p, rollover);
+
+			}
 			tm.tm_sec = p.data.primary_timing_packet.seconds;
 			tm.tm_min = p.data.primary_timing_packet.minutes;
 			tm.tm_hour = p.data.primary_timing_packet.hour;
@@ -787,6 +931,15 @@ int read_tsip(const char *buf, size_t len /* Stick in handler function */)
 			seconds = timegm(&tm);
 			if ((p.data.primary_timing_packet.timing_flag & 0x01) == 0)
 			    seconds -= p.data.primary_timing_packet.utc_offset;
+
+
+			if (!detach && rolls > 0 && verbose >= 2) {
+			  printf("rolled over %d: %04d-%02d-%02d %02d:%02d:%02d\n",
+				 rolls,
+				 tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec
+			       );
+			}
+
 
 			shm->valid = 0;
 		    	shm->count++;
